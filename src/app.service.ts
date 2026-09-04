@@ -1,5 +1,18 @@
 import { Injectable } from '@nestjs/common';
 
+export interface Employee {
+  id: number;
+  name: string;
+  department: string;
+}
+
+const EMPLOYEES: Employee[] = [
+  { id: 1, name: 'Ana Torres', department: 'Engineering' },
+  { id: 2, name: 'Bruno Silva', department: 'Sales' },
+  { id: 3, name: 'Carla Mendes', department: 'Engineering' },
+  { id: 4, name: 'Diego Ramirez', department: 'Marketing' },
+];
+
 @Injectable()
 export class AppService {
   getHello(): string {
@@ -30,5 +43,16 @@ export class AppService {
       (-b + sqrtDiscriminant) / (2 * a),
       (-b - sqrtDiscriminant) / (2 * a),
     ];
+  }
+
+  getEmployees(department?: string): Employee[] {
+    if (!department) {
+      return EMPLOYEES;
+    }
+
+    return EMPLOYEES.filter(
+      (employee) =>
+        employee.department.toLowerCase() === department.toLowerCase(),
+    );
   }
 }

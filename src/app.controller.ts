@@ -1,5 +1,5 @@
 import { Controller, Get, Query } from '@nestjs/common';
-import { AppService } from './app.service';
+import { AppService, Employee } from './app.service';
 
 @Controller()
 export class AppController {
@@ -27,5 +27,10 @@ export class AppController {
     @Query('c') c: number,
   ): number[] {
     return this.appService.solveQuadratic(Number(a), Number(b), Number(c));
+  }
+
+  @Get('employees')
+  getEmployees(@Query('department') department?: string): Employee[] {
+    return this.appService.getEmployees(department);
   }
 }
