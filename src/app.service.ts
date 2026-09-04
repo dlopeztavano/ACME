@@ -9,4 +9,8 @@ export class AppService {
   getGreeting(): string {
     return 'Hello World Tavano Team!';
   }
+
+  add(a: number, b: number): number {
+    return a + b;
+  }
 }
