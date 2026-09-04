@@ -25,8 +25,6 @@ jobs:
 
       - name: Build context
         env:
-          # PR title/body go through env, never inline ${{ }} in a run block —
-          # a PR description is untrusted input and would allow shell injection
           PR_TITLE: ${{ github.event.pull_request.title }}
           PR_BODY: ${{ github.event.pull_request.body }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
@@ -40,6 +38,9 @@ jobs:
             git log --no-merges --pretty=format:'- %s' "$BASE_SHA...HEAD"
             printf '\n\n## Files changed\n'
             git diff --stat "$BASE_SHA...HEAD"
+            printf '\n\n## Diff\n'
+            # Real code changes, minus our own CI files, capped to control token cost
+            git diff "$BASE_SHA...HEAD" -- . ':(exclude).github' | head -c 60000
           } > context.txt
           cat context.txt
 
