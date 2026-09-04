@@ -47,25 +47,31 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
-          # jq builds the JSON so the diff and PR body are escaped correctly
           jq -n \
             --rawfile ctx context.txt \
             --rawfile sys .github/changelog-skill.md \
             '{
-              model: "claude-sonnet-5",
+              model: "claude-haiku-4-5-20251001",
               max_tokens: 1024,
               system: $sys,
               messages: [{ role: "user", content: $ctx }]
             }' > payload.json
 
-          curl -sS --fail-with-body https://api.anthropic.com/v1/messages \
+          curl -sS https://api.anthropic.com/v1/messages \
             -H "x-api-key: $ANTHROPIC_API_KEY" \
             -H "anthropic-version: 2023-06-01" \
             -H "content-type: application/json" \
             -d @payload.json > response.json
 
-          # -e exits non-zero if the API returned an error object instead of content
-          jq -er '.content[0].text' response.json > entry.md
+          # Always show the raw response so failures are self-explaining
+          echo "--- API response ---"
+          cat response.json
+          echo "--- end ---"
+
+          if ! jq -er '.content[0].text' response.json > entry.md; then
+            echo "::error::Anthropic API call did not return content (see response above)"
+            exit 1
+          fi
 
       - name: Post as PR comment
         env:
