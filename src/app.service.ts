@@ -7,6 +7,6 @@ export class AppService {
   }
 
   getGreeting(): string {
-    return 'Hello World!';
+    return 'Hello World Tavano Team!';
   }
 }
