@@ -19,4 +19,13 @@ export class AppController {
   add(@Query('a') a: number, @Query('b') b: number): number {
     return this.appService.add(Number(a), Number(b));
   }
+
+  @Get('quadratic')
+  solveQuadratic(
+    @Query('a') a: number,
+    @Query('b') b: number,
+    @Query('c') c: number,
+  ): number[] {
+    return this.appService.solveQuadratic(Number(a), Number(b), Number(c));
+  }
 }
