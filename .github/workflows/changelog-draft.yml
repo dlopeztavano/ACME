@@ -1,0 +1,88 @@
+name: Changelog Draft
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write   # needed to post the comment
+
+# One run per PR; a new push supersedes the in-flight draft
+concurrency:
+  group: changelog-draft-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  draft:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history so we can diff against the base branch
+
+      - name: Build context
+        env:
+          # PR title/body go through env, never inline ${{ }} in a run block —
+          # a PR description is untrusted input and would allow shell injection
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          {
+            echo "## Pull request"
+            echo "Title: $PR_TITLE"
+            echo "Description:"
+            echo "$PR_BODY"
+            printf '\n## Commits\n'
+            git log --no-merges --pretty=format:'- %s' "$BASE_SHA...HEAD"
+            printf '\n\n## Files changed\n'
+            git diff --stat "$BASE_SHA...HEAD"
+          } > context.txt
+          cat context.txt
+
+      - name: Generate draft
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          # jq builds the JSON so the diff and PR body are escaped correctly
+          jq -n \
+            --rawfile ctx context.txt \
+            --rawfile sys .github/changelog-skill.md \
+            '{
+              model: "claude-sonnet-5",
+              max_tokens: 1024,
+              system: $sys,
+              messages: [{ role: "user", content: $ctx }]
+            }' > payload.json
+
+          curl -sS --fail-with-body https://api.anthropic.com/v1/messages \
+            -H "x-api-key: $ANTHROPIC_API_KEY" \
+            -H "anthropic-version: 2023-06-01" \
+            -H "content-type: application/json" \
+            -d @payload.json > response.json
+
+          # -e exits non-zero if the API returned an error object instead of content
+          jq -er '.content[0].text' response.json > entry.md
+
+      - name: Post as PR comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if grep -qx 'NO_CHANGES' entry.md; then
+            echo "Nothing worth logging."; exit 0
+          fi
+
+          {
+            echo "### 📝 Draft changelog entry"
+            echo
+            cat entry.md
+            echo
+            echo "_Generated automatically. Correct the PR description if this is wrong._"
+          } > comment.md
+
+          # Edit the previous draft if one exists, otherwise create a new comment
+          gh pr comment "${{ github.event.pull_request.number }}" --body-file comment.md --edit-last \
+            || gh pr comment "${{ github.event.pull_request.number }}" --body-file comment.md
